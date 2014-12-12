@@ -16,11 +16,14 @@
  */
 package spark;
 
+import org.eclipse.jetty.server.Connector;
+import org.eclipse.jetty.server.Server;
 import spark.route.HttpMethod;
 import spark.route.RouteMatcher;
-import spark.route.RouteMatcherFactory;
-import spark.webserver.SparkServer;
+import spark.route.SimpleRouteMatcher;
 import spark.webserver.SparkServerFactory;
+
+import java.util.Arrays;
 
 /**
  * The main building block of a Spark application is a set of routes. A route is
@@ -51,52 +54,15 @@ import spark.webserver.SparkServerFactory;
  */
 public final class Spark {
 
-    private static final int SPARK_DEFAULT_PORT = 4567;
+    private boolean initialized = false;
 
-    private static boolean initialized = false;
-
-    private static SparkServer server;
-    private static RouteMatcher routeMatcher;
-    private static String ipAddress = "0.0.0.0";
-    private static int port = SPARK_DEFAULT_PORT;
-
-    private static String keystoreFile;
-    private static String keystorePassword;
-    private static String truststoreFile;
-    private static String truststorePassword;
-
-    private static String staticFileFolder = null;
-    private static String externalStaticFileFolder = null;
+    private Server server;
+    private RouteMatcher routeMatcher;
+    private final int port;
 
     // Hide constructor
-    private Spark() {
-    }
-
-    /**
-     * Set the IP address that Spark should listen on. If not called the default
-     * address is '0.0.0.0'. This has to be called before any route mapping is
-     * done.
-     *
-     * @param ipAddress The ipAddress
-     */
-    public static synchronized void setIpAddress(String ipAddress) {
-        if (initialized) {
-            throwBeforeRouteMappingException();
-        }
-        Spark.ipAddress = ipAddress;
-    }
-
-    /**
-     * Set the port that Spark should listen on. If not called the default port
-     * is 4567. This has to be called before any route mapping is done.
-     *
-     * @param port The port number
-     */
-    public static synchronized void setPort(int port) {
-        if (initialized) {
-            throwBeforeRouteMappingException();
-        }
-        Spark.port = port;
+    public Spark(int port) {
+        this.port = port;
     }
 
     /**
@@ -115,7 +81,7 @@ public final class Spark {
      *                           keystore
      * @param truststorePassword the trust store password
      */
-    public static synchronized void setSecure(String keystoreFile,
+    public synchronized void setSecure(String keystoreFile,
                                               String keystorePassword, String truststoreFile,
                                               String truststorePassword) {
         if (initialized) {
@@ -127,117 +93,6 @@ public final class Spark {
                     "Must provide a keystore file to run secured");
         }
 
-        Spark.keystoreFile = keystoreFile;
-        Spark.keystorePassword = keystorePassword;
-        Spark.truststoreFile = truststoreFile;
-        Spark.truststorePassword = truststorePassword;
-    }
-
-    /**
-     * Sets the folder in classpath serving static files. <b>Observe: this method
-     * must be called before all other methods.</b>
-     *
-     * @param folder the folder in classpath.
-     */
-    public static synchronized void staticFileLocation(String folder) {
-        if (initialized) {
-            throwBeforeRouteMappingException();
-        }
-        staticFileFolder = folder;
-    }
-
-    /**
-     * Sets the external folder serving static files. <b>Observe: this method
-     * must be called before all other methods.</b>
-     *
-     * @param externalFolder the external folder serving static files.
-     */
-    public static synchronized void externalStaticFileLocation(String externalFolder) {
-        if (initialized) {
-            throwBeforeRouteMappingException();
-        }
-        externalStaticFileFolder = externalFolder;
-    }
-
-    /**
-     * Map the route for HTTP GET requests
-     *
-     * @param route The route
-     */
-    public static synchronized void get(Route route) {
-        addRoute(HttpMethod.get.name(), route);
-    }
-
-    /**
-     * Map the route for HTTP POST requests
-     *
-     * @param route The route
-     */
-    public static synchronized void post(Route route) {
-        addRoute(HttpMethod.post.name(), route);
-    }
-
-    /**
-     * Map the route for HTTP PUT requests
-     *
-     * @param route The route
-     */
-    public static synchronized void put(Route route) {
-        addRoute(HttpMethod.put.name(), route);
-    }
-
-    /**
-     * Map the route for HTTP PATCH requests
-     *
-     * @param route The route
-     */
-    public static synchronized void patch(Route route) {
-        addRoute(HttpMethod.patch.name(), route);
-    }
-
-    /**
-     * Map the route for HTTP DELETE requests
-     *
-     * @param route The route
-     */
-    public static synchronized void delete(Route route) {
-        addRoute(HttpMethod.delete.name(), route);
-    }
-
-    /**
-     * Map the route for HTTP HEAD requests
-     *
-     * @param route The route
-     */
-    public static synchronized void head(Route route) {
-        addRoute(HttpMethod.head.name(), route);
-    }
-
-    /**
-     * Map the route for HTTP TRACE requests
-     *
-     * @param route The route
-     */
-    public static synchronized void trace(Route route) {
-        addRoute(HttpMethod.trace.name(), route);
-    }
-
-    /**
-     * Map the route for HTTP CONNECT requests
-     *
-     * @param route The route
-     */
-    public static synchronized void connect(Route route) {
-        addRoute(HttpMethod.connect.name(), route);
-    }
-
-    /**
-     * Map the route for HTTP OPTIONS requests
-     *
-     * @param route The route
-     */
-    public static synchronized void options(Route route) {
-        addRoute(HttpMethod.options.name(), route);
     }
 
     /**
@@ -245,7 +100,7 @@ public final class Spark {
      *
      * @param filter The filter
      */
-    public static synchronized void before(Filter filter) {
+    public synchronized void before(Filter filter) {
         addFilter(HttpMethod.before.name(), filter);
     }
 
@@ -254,71 +109,68 @@ public final class Spark {
      *
      * @param filter The filter
      */
-    public static synchronized void after(Filter filter) {
+    public synchronized void after(Filter filter) {
         addFilter(HttpMethod.after.name(), filter);
     }
 
-    static synchronized void runFromServlet() {
+    synchronized void runFromServlet() {
         if (!initialized) {
-            routeMatcher = RouteMatcherFactory.get();
+            routeMatcher = new SimpleRouteMatcher(); // RouteMatcherFactory.get();
             initialized = true;
         }
     }
 
-    // WARNING, used for jUnit testing only!!!
-    static synchronized void clearRoutes() {
+    // WARNING, used for jUnit testing only!!! (not anymore!!!!)
+    public synchronized void clearRoutes() {
         routeMatcher.clearRoutes();
     }
 
     // Used for jUnit testing!
-    static synchronized void stop() {
+    public synchronized void stop() {
         if (server != null) {
-            server.stop();
+            try {
+                server.stop();
+            } catch (Exception e) {
+                e.printStackTrace(); // TODO sort that out
+            }
         }
         initialized = false;
     }
 
-    private static void addRoute(String httpMethod, Route route) {
+    public synchronized void addRoute(String httpMethod, Route route) {
         init();
         routeMatcher.parseValidateAddRoute(httpMethod + " '" + route.getPath()
                 + "'", route.getAcceptType(), route);
     }
 
-    private static void addFilter(String httpMethod, Filter filter) {
+    private void addFilter(String httpMethod, Filter filter) {
         init();
         routeMatcher.parseValidateAddRoute(httpMethod + " '" + filter.getPath()
                 + "'", filter.getAcceptType(), filter);
     }
     
-    private static boolean hasMultipleHandlers() {
-        return staticFileFolder != null || externalStaticFileFolder != null;
-    }
-
-    private static synchronized void init() {
+    private synchronized void init() {
         if (!initialized) {
-            routeMatcher = RouteMatcherFactory.get();
-            new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    server = SparkServerFactory.create(hasMultipleHandlers());
-                    server.ignite(
-                            ipAddress,
-                            port,
-                            keystoreFile,
-                            keystorePassword,
-                            truststoreFile,
-                            truststorePassword,
-                            staticFileFolder,
-                            externalStaticFileFolder);
-                }
-            }).start();
+            routeMatcher = new SimpleRouteMatcher(); // RouteMatcherFactory.get();
+            server = SparkServerFactory.create(port, routeMatcher);
             initialized = true;
         }
     }
 
-    private static void throwBeforeRouteMappingException() {
+    private void throwBeforeRouteMappingException() {
         throw new IllegalStateException(
                 "This must be done before route mapping has begun");
+    }
+
+    public int getPort() {
+        init();
+        Connector[] connectors = server.getConnectors();
+        if (connectors.length != 1) {
+            throw new IllegalStateException("Can't pick a connector: " + Arrays.toString(connectors));
+        }
+
+        Connector connector = connectors[0];
+        return connector.getLocalPort();
     }
     
     /*

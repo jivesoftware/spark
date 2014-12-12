@@ -16,6 +16,8 @@
  */
 package spark.webserver;
 
+import org.eclipse.jetty.server.Server;
+import spark.route.RouteMatcher;
 import spark.route.RouteMatcherFactory;
 
 /**
@@ -27,11 +29,22 @@ public final class SparkServerFactory {
 
     private SparkServerFactory() {}
     
-    public static SparkServer create(boolean hasMultipleHandler) {
-        MatcherFilter matcherFilter = new MatcherFilter(RouteMatcherFactory.get(), false, hasMultipleHandler);
+    public static Server create(int port, RouteMatcher routeMatcher) {
+        MatcherFilter matcherFilter = new MatcherFilter(routeMatcher, false, false);
         matcherFilter.init(null);
         JettyHandler handler = new JettyHandler(matcherFilter);
-        return new SparkServerImpl(handler);
+
+        Server server = new Server(port);
+        server.setHandler(handler);
+
+        try {
+            server.start();
+            //server.join();
+        } catch (Exception e) {
+            return null; // TODO sort this out
+        }
+
+        return server;
     }
     
 }

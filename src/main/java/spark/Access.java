@@ -18,14 +18,18 @@ package spark;
 
 public final class Access {
 
-    private Access() {}
+    private final Spark spark;
+
+    public Access(Spark spark) {
+        this.spark = spark;
+    }
     
     public static String getBody(Response response) {
         return response.body();
     }
 
-    public static void runFromServlet() {
-        Spark.runFromServlet();
+    public void runFromServlet() {
+        spark.runFromServlet(); // TODO that seems wrong
     }
 
 }

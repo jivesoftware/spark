@@ -31,11 +31,15 @@ public final class RouteMatcherFactory {
     private RouteMatcherFactory() {}
     
     public static synchronized RouteMatcher get() {
+        /*
         if (routeMatcher == null) {
             LOG.debug("creates RouteMatcher");
             routeMatcher = new SimpleRouteMatcher();
         }
         return routeMatcher;
+        */
+
+        return new SimpleRouteMatcher();
     }
 
 }
