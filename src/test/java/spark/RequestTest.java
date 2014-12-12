@@ -200,7 +200,6 @@ public class RequestTest {
         }
 
         @Override
-        @Deprecated
         public boolean isRequestedSessionIdFromUrl() {
             return false;
         }
@@ -301,7 +300,6 @@ public class RequestTest {
         }
 
         @Override
-        @Deprecated
         public String getRealPath(String path) {
             return null;
         }

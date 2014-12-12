@@ -1,35 +1,32 @@
 package spark.servlet;
 
+import static spark.util.SparkTestUtil.sleep;
+import junit.framework.Assert;
+
 import org.eclipse.jetty.server.Connector;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.ServerConnector;
 import org.eclipse.jetty.webapp.WebAppContext;
 import org.junit.AfterClass;
-import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import spark.Spark;
+import spark.TAccess;
 import spark.util.SparkTestUtil;
 import spark.util.SparkTestUtil.UrlResponse;
-
-import static spark.util.SparkTestUtil.sleep;
 
 public class ServletTest {
 
     private static final String SOMEPATH = "/somepath";
     private static final int PORT = 9393;
-    private static final Logger LOGGER = LoggerFactory.getLogger(ServletTest.class);
     static final Server server = new Server();
 
     static SparkTestUtil testUtil;
 
     @AfterClass
     public static void tearDown() {
-        Spark.stop();
+        TAccess.clearRoutes();
+        TAccess.stop();
     }
 
     @BeforeClass
@@ -43,7 +40,7 @@ public class ServletTest {
         connector.setIdleTimeout(1000 * 60 * 60);
         connector.setSoLingerTime(-1);
         connector.setPort(PORT);
-        server.setConnectors(new Connector[] {connector});
+        server.setConnectors(new Connector[]{connector});
 
         WebAppContext bb = new WebAppContext();
         bb.setServer(server);
@@ -56,10 +53,10 @@ public class ServletTest {
             @Override
             public void run() {
                 try {
-                    LOGGER.info(">>> STARTING EMBEDDED JETTY SERVER for jUnit testing of SparkFilter");
+                    System.out.println(">>> STARTING EMBEDDED JETTY SERVER for jUnit testing of SparkFilter");
                     server.start();
                     System.in.read();
-                    LOGGER.info(">>> STOPPING EMBEDDED JETTY SERVER");
+                    System.out.println(">>> STOPPING EMBEDDED JETTY SERVER");
                     server.stop();
                     server.join();
                 } catch (Exception e) {
@@ -161,39 +158,11 @@ public class ServletTest {
     public void testPost() {
         try {
             UrlResponse response = testUtil.doMethod("POST", SOMEPATH + "/poster", "Fo shizzy");
+            System.out.println(response.body);
             Assert.assertEquals(201, response.status);
             Assert.assertTrue(response.body.contains("Fo shizzy"));
         } catch (Throwable e) {
             throw new RuntimeException(e);
         }
-    }
-
-    @Test
-    public void testStaticResource() {
-        try {
-            UrlResponse response = testUtil.doMethod("GET", SOMEPATH + "/css/style.css", null);
-            Assert.assertEquals(200, response.status);
-            Assert.assertTrue(response.body.contains("Content of css file"));
-        } catch (Throwable e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    @Test
-    public void testStaticWelcomeResource() {
-        try {
-            UrlResponse response = testUtil.doMethod("GET", SOMEPATH + "/pages/", null);
-            Assert.assertEquals(200, response.status);
-            Assert.assertTrue(response.body.contains("<html><body>Hello Static World!</body></html>"));
-        } catch (Throwable e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    @Test
-    public void testExternalStaticFile() throws Exception {
-        UrlResponse response = testUtil.doMethod("GET", SOMEPATH + "/externalFile.html", null);
-        Assert.assertEquals(200, response.status);
-        Assert.assertEquals("Content of external file", response.body);
     }
 }

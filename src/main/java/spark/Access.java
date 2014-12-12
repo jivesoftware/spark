@@ -16,23 +16,16 @@
  */
 package spark;
 
-import spark.route.RouteMatch;
-
 public final class Access {
 
-    private Access() {
-    }
-
+    private Access() {}
+    
     public static String getBody(Response response) {
         return response.body();
     }
 
     public static void runFromServlet() {
         Spark.runFromServlet();
-    }
-
-    public static void changeMatch(Request request, RouteMatch match) {
-        request.changeMatch(match);
     }
 
 }

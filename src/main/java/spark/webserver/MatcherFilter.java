@@ -29,17 +29,14 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import spark.Access;
-import spark.FilterImpl;
 import spark.HaltException;
 import spark.Request;
 import spark.RequestResponseFactory;
 import spark.Response;
-import spark.RouteImpl;
-import spark.exception.ExceptionHandlerImpl;
-import spark.exception.ExceptionMapper;
+import spark.Route;
 import spark.route.HttpMethod;
 import spark.route.RouteMatch;
-import spark.route.SimpleRouteMatcher;
+import spark.route.RouteMatcher;
 
 /**
  * Filter for matching of filters and routes.
@@ -49,25 +46,22 @@ import spark.route.SimpleRouteMatcher;
 public class MatcherFilter implements Filter {
 
     private static final String ACCEPT_TYPE_REQUEST_MIME_HEADER = "Accept";
-    private static final String HTTP_METHOD_OVERRIDE_HEADER = "X-HTTP-Method-Override";
 
-    private SimpleRouteMatcher routeMatcher;
+	private RouteMatcher routeMatcher;
     private boolean isServletContext;
     private boolean hasOtherHandlers;
 
-    /**
-     * The logger.
-     */
+    /** The logger. */
     private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(MatcherFilter.class);
 
     /**
      * Constructor
      *
-     * @param routeMatcher     The route matcher
+     * @param routeMatcher The route matcher
      * @param isServletContext If true, chain.doFilter will be invoked if request is not consumed by Spark.
      * @param hasOtherHandlers If true, do nothing if request is not consumed by Spark in order to let others handlers process the request.
      */
-    public MatcherFilter(SimpleRouteMatcher routeMatcher, boolean isServletContext, boolean hasOtherHandlers) {
+    public MatcherFilter(RouteMatcher routeMatcher, boolean isServletContext, boolean hasOtherHandlers) {
         this.routeMatcher = routeMatcher;
         this.isServletContext = isServletContext;
         this.hasOtherHandlers = hasOtherHandlers;
@@ -78,24 +72,19 @@ public class MatcherFilter implements Filter {
     }
 
     public void doFilter(ServletRequest servletRequest, ServletResponse servletResponse, // NOSONAR
-                         FilterChain chain) throws IOException, ServletException { // NOSONAR
+                    FilterChain chain) throws IOException, ServletException { // NOSONAR
+        long t0 = System.currentTimeMillis();
         HttpServletRequest httpRequest = (HttpServletRequest) servletRequest; // NOSONAR
         HttpServletResponse httpResponse = (HttpServletResponse) servletResponse;
 
-        String method = httpRequest.getHeader(HTTP_METHOD_OVERRIDE_HEADER);
-        if (method == null) {
-            method = httpRequest.getMethod();
-        }
-        String httpMethodStr = method.toLowerCase(); // NOSONAR
+        String httpMethodStr = httpRequest.getMethod().toLowerCase(); // NOSONAR
         String uri = httpRequest.getRequestURI(); // NOSONAR
         String acceptType = httpRequest.getHeader(ACCEPT_TYPE_REQUEST_MIME_HEADER);
 
         String bodyContent = null;
 
-        RequestWrapper requestWrapper = new RequestWrapper();
-        ResponseWrapper responseWrapper = new ResponseWrapper();
-
-        Response response = RequestResponseFactory.create(httpResponse);
+        RequestWrapper req = new RequestWrapper();
+        ResponseWrapper res = new ResponseWrapper();
 
         LOG.debug("httpMethod:" + httpMethodStr + ", uri: " + uri);
         try {
@@ -104,15 +93,16 @@ public class MatcherFilter implements Filter {
 
             for (RouteMatch filterMatch : matchSet) {
                 Object filterTarget = filterMatch.getTarget();
-                if (filterTarget instanceof FilterImpl) {
+                if (filterTarget instanceof spark.Filter) {
                     Request request = RequestResponseFactory.create(filterMatch, httpRequest);
+                    Response response = RequestResponseFactory.create(httpResponse);
 
-                    FilterImpl filter = (FilterImpl) filterTarget;
+                    spark.Filter filter = (spark.Filter) filterTarget;
 
-                    requestWrapper.setDelegate(request);
-                    responseWrapper.setDelegate(response);
+                    req.setDelegate(request);
+                    res.setDelegate(response);
 
-                    filter.handle(requestWrapper, responseWrapper);
+                    filter.handle(req, res);
 
                     String bodyAfterFilter = Access.getBody(response);
                     if (bodyAfterFilter != null) {
@@ -132,35 +122,34 @@ public class MatcherFilter implements Filter {
                 target = match.getTarget();
             } else if (httpMethod == HttpMethod.head && bodyContent == null) {
                 // See if get is mapped to provide default head mapping
-                bodyContent =
-                        routeMatcher.findTargetForRequestedRoute(HttpMethod.get, uri, acceptType) != null ? "" : null;
+                bodyContent = routeMatcher.findTargetForRequestedRoute(HttpMethod.get, uri, acceptType) != null ? "" : null;
             }
 
             if (target != null) {
                 try {
                     String result = null;
-                    if (target instanceof RouteImpl) {
-                        RouteImpl route = ((RouteImpl) target);
+                    if (target instanceof Route) {
+                        Route route = ((Route) target);
+                        Request request = RequestResponseFactory.create(match, httpRequest);
+                        Response response = RequestResponseFactory.create(httpResponse);
 
-                        if (requestWrapper.getDelegate() == null) {
-                            Request request = RequestResponseFactory.create(match, httpRequest);
-                            requestWrapper.setDelegate(request);
-                        } else {
-                            requestWrapper.changeMatch(match);
-                        }
+                        req.setDelegate(request);
+                        res.setDelegate(response);
 
-                        responseWrapper.setDelegate(response);
-
-                        Object element = route.handle(requestWrapper, responseWrapper);
-
+                        Object element = route.handle(req, res);
                         result = route.render(element);
-                        // result = element.toString(); // TODO: Remove later when render fixed
                     }
                     if (result != null) {
                         bodyContent = result;
                     }
+                    long t1 = System.currentTimeMillis() - t0;
+                    LOG.debug("Time for request: " + t1);
                 } catch (HaltException hEx) { // NOSONAR
                     throw hEx; // NOSONAR
+                } catch (Exception e) {
+                    LOG.error("", e);
+                    httpResponse.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                    bodyContent = INTERNAL_ERROR;
                 }
             }
 
@@ -169,19 +158,15 @@ public class MatcherFilter implements Filter {
 
             for (RouteMatch filterMatch : matchSet) {
                 Object filterTarget = filterMatch.getTarget();
-                if (filterTarget instanceof FilterImpl) {
+                if (filterTarget instanceof spark.Filter) {
+                    Request request = RequestResponseFactory.create(filterMatch, httpRequest);
+                    Response response = RequestResponseFactory.create(httpResponse);
 
-                    if (requestWrapper.getDelegate() == null) {
-                        Request request = RequestResponseFactory.create(filterMatch, httpRequest);
-                        requestWrapper.setDelegate(request);
-                    } else {
-                        requestWrapper.changeMatch(filterMatch);
-                    }
+                    req.setDelegate(request);
+                    res.setDelegate(response);
 
-                    responseWrapper.setDelegate(response);
-
-                    FilterImpl filter = (FilterImpl) filterTarget;
-                    filter.handle(requestWrapper, responseWrapper);
+                    spark.Filter filter = (spark.Filter) filterTarget;
+                    filter.handle(req, res);
 
                     String bodyAfterFilter = Access.getBody(response);
                     if (bodyAfterFilter != null) {
@@ -199,24 +184,6 @@ public class MatcherFilter implements Filter {
             } else {
                 bodyContent = "";
             }
-        } catch (Exception e) {
-            ExceptionHandlerImpl handler = ExceptionMapper.getInstance().getHandler(e);
-            if (handler != null) {
-                handler.handle(e, requestWrapper, responseWrapper);
-                String bodyAfterFilter = Access.getBody(responseWrapper.getDelegate());
-                if (bodyAfterFilter != null) {
-                    bodyContent = bodyAfterFilter;
-                }
-            } else {
-                LOG.error("", e);
-                httpResponse.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-                bodyContent = INTERNAL_ERROR;
-            }
-        }
-
-        // If redirected and content is null set to empty string to not throw NotConsumedException
-        if (bodyContent == null && responseWrapper.isRedirected()) {
-            bodyContent = "";
         }
 
         boolean consumed = bodyContent != null;
@@ -226,9 +193,8 @@ public class MatcherFilter implements Filter {
         }
 
         if (!consumed && !isServletContext) {
-            LOG.info("The requested route [" + uri + "] has not been mapped in Spark");
             httpResponse.setStatus(HttpServletResponse.SC_NOT_FOUND);
-            bodyContent = String.format(NOT_FOUND);
+            bodyContent = String.format(NOT_FOUND, uri);
             consumed = true;
         }
 
@@ -249,6 +215,6 @@ public class MatcherFilter implements Filter {
         // TODO Auto-generated method stub
     }
 
-    private static final String NOT_FOUND = "<html><body><h2>404 Not found</h2></body></html>";
+    private static final String NOT_FOUND = "<html><body><h2>404 Not found</h2>The requested route [%s] has not been mapped in Spark</body></html>";
     private static final String INTERNAL_ERROR = "<html><body><h2>500 Internal Error</h2></body></html>";
 }
