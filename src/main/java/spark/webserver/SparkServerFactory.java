@@ -18,7 +18,6 @@ package spark.webserver;
 
 import org.eclipse.jetty.server.Server;
 import spark.route.RouteMatcher;
-import spark.route.RouteMatcherFactory;
 
 /**
  * 

@@ -30,9 +30,7 @@ import javax.servlet.http.HttpServletRequestWrapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import spark.Access;
 import spark.Spark;
-import spark.route.RouteMatcherFactory;
 import spark.webserver.MatcherFilter;
 
 /**
@@ -59,14 +57,13 @@ public class SparkFilter implements Filter {
 
     @Override
     public void init(FilterConfig filterConfig) throws ServletException {
-        Access access = new Access(spark);
-        access.runFromServlet();
+        spark.runFromServlet();
 
         final SparkApplication application = getApplication(filterConfig);
         application.init();
 
         filterPath = FilterTools.getFilterPath(filterConfig);
-        matcherFilter = new MatcherFilter(RouteMatcherFactory.get(), true, false);
+        matcherFilter = new MatcherFilter(spark.getRouteMatcher(), true, false);
     }
 
     /**
