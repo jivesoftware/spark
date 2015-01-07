@@ -3,7 +3,6 @@ package spark;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
-import org.robolectric.Robolectric;
 import spark.route.HttpMethod;
 
 import javax.annotation.Nonnull;
@@ -22,10 +21,6 @@ public class SparkJive {
     }
 
     public SparkJive(int port) {
-        try {
-            Robolectric.getFakeHttpLayer().interceptHttpRequests(false);
-        } catch (Exception ignore) {}
-
         spark = new Spark(port); // Get any available port (check for it with getURI() below)
     }
 
