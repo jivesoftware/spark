@@ -28,7 +28,6 @@ import javax.servlet.ServletResponse;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import spark.Access;
 import spark.HaltException;
 import spark.Request;
 import spark.RequestResponseFactory;
@@ -104,7 +103,7 @@ public class MatcherFilter implements Filter {
 
                     filter.handle(req, res);
 
-                    String bodyAfterFilter = Access.getBody(response);
+                    String bodyAfterFilter = response.body();
                     if (bodyAfterFilter != null) {
                         bodyContent = bodyAfterFilter;
                     }
@@ -168,7 +167,7 @@ public class MatcherFilter implements Filter {
                     spark.Filter filter = (spark.Filter) filterTarget;
                     filter.handle(req, res);
 
-                    String bodyAfterFilter = Access.getBody(response);
+                    String bodyAfterFilter = response.body();
                     if (bodyAfterFilter != null) {
                         bodyContent = bodyAfterFilter;
                     }

@@ -113,9 +113,9 @@ public final class Spark {
         addFilter(HttpMethod.after.name(), filter);
     }
 
-    synchronized void runFromServlet() {
+    public synchronized void runFromServlet() {
         if (!initialized) {
-            routeMatcher = new SimpleRouteMatcher(); // RouteMatcherFactory.get();
+            routeMatcher = new SimpleRouteMatcher();
             initialized = true;
         }
     }
@@ -171,6 +171,10 @@ public final class Spark {
 
         Connector connector = connectors[0];
         return connector.getLocalPort();
+    }
+
+    public RouteMatcher getRouteMatcher() {
+        return this.routeMatcher;
     }
     
     /*
