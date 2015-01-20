@@ -292,7 +292,7 @@ public class Request {
      */
     public Set<String> attributes() {
         Set<String> attrList = new HashSet<String>();
-        Enumeration<String> attributes = (Enumeration<String>) servletRequest.getAttributeNames();
+        Enumeration<String> attributes = servletRequest.getAttributeNames();
         while (attributes.hasMoreElements()) {
             attrList.add(attributes.nextElement());
         }
