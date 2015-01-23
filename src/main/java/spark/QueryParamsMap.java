@@ -145,8 +145,8 @@ public class QueryParamsMap {
      * 
      * </code>
      * 
-     * @param key
-     *            The paramater nested key
+     * @param keys
+     *            The parameter nested keys
      * @return
      */
     public QueryParamsMap get(String... keys) {
@@ -185,7 +185,7 @@ public class QueryParamsMap {
      * get("user").value("name")
      * </code>
      * 
-     * @param key
+     * @param keys
      * @return
      */
     public String value(String... keys) {

@@ -22,7 +22,7 @@ import java.util.Map;
  * 
  * Ported by Tom Zellman <tzellman@gmail.com>.
  * 
- * Modified by Alex Soto <asotobu@gmail.com> to coform naming conventions and removing unnecessary dependencies.
+ * Modified by Alex Soto <asotobu@gmail.com> to conform naming conventions and removing unnecessary dependencies.
  * 
  */
 public class MimeParse {
@@ -185,7 +185,7 @@ public class MimeParse {
 	 * mediaRanges in ranges. For example:
 	 * 
 	 * @param mimeType
-	 * @param parsedRanges
+	 * @param ranges
 	 */
 	public static float quality(String mimeType, String ranges) {
 		List<ParseResults> results = new LinkedList<ParseResults>();
